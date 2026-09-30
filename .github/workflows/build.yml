@@ -36,9 +36,11 @@ jobs:
           $dlls = python -c "import sysconfig, pathlib; print(pathlib.Path(sysconfig.get_path('stdlib')).parent / 'DLLs')"
           Copy-Item "$dlls\libcrypto-3-x64.dll", "$dlls\libssl-3-x64.dll" "desktop\dist\pobieralnik\_internal\" -Force
       - name: Selftest (networking in frozen build)
+        continue-on-error: true  # YouTube bywa blokowany na IP GitHub Actions
         run: |
           cd desktop
-          ./dist/pobieralnik/pobieralnik.exe --selftest "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
+          if (Test-Path selftest_log.txt) { Remove-Item selftest_log.txt }
+          Start-Process -FilePath "./dist/pobieralnik/pobieralnik.exe" -ArgumentList '--selftest','https://www.youtube.com/watch?v=aqz-KE-bpKQ' -Wait
           Select-String -Path selftest_log.txt -Pattern "KONIEC: done"
       - name: Inno Setup installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
