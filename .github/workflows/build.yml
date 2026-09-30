@@ -1,0 +1,103 @@
+name: Build & Release
+
+# Automatycznie buduje instalatory i publikuje je w GitHub Releases,
+# skąd można je pobrać z dowolnego komputera lub telefonu.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r desktop/requirements.txt pyinstaller
+      - name: Download ffmpeg
+        run: |
+          curl -L -o ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          tar -xf ffmpeg.zip
+          New-Item -ItemType Directory -Force desktop/bin | Out-Null
+          Copy-Item ffmpeg-*-essentials_build/bin/ffmpeg.exe desktop/bin/
+          Copy-Item ffmpeg-*-essentials_build/bin/ffprobe.exe desktop/bin/
+      - name: PyInstaller build
+        run: |
+          cd desktop
+          python -m PyInstaller --noconfirm --clean --windowed --onedir --name pobieralnik --icon assets/icon.ico --add-data "bin;bin" --add-data "assets;assets" --collect-data certifi main.py
+      - name: Fix OpenSSL DLLs (Qt vs Python conflict)
+        run: |
+          $dlls = python -c "import sysconfig, pathlib; print(pathlib.Path(sysconfig.get_path('stdlib')).parent / 'DLLs')"
+          Copy-Item "$dlls\libcrypto-3-x64.dll", "$dlls\libssl-3-x64.dll" "desktop\dist\pobieralnik\_internal\" -Force
+      - name: Selftest (networking in frozen build)
+        run: |
+          cd desktop
+          ./dist/pobieralnik/pobieralnik.exe --selftest "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
+          Select-String -Path selftest_log.txt -Pattern "KONIEC: done"
+      - name: Inno Setup installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        with:
+          path: desktop/installer.iss
+      - name: Zip portable
+        run: |
+          cd desktop/dist
+          tar -a -c -f pobieralnik-windows.zip pobieralnik
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/dist/pobieralnik-windows.zip
+            desktop/installer/pobieralnik-lol-Setup-1.0.0.exe
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r desktop/requirements.txt pyinstaller
+      - name: Install ffmpeg
+        run: |
+          brew install ffmpeg
+          mkdir -p desktop/bin
+          cp "$(which ffmpeg)" desktop/bin/ffmpeg
+          cp "$(which ffprobe)" desktop/bin/ffprobe
+      - name: PyInstaller build (.app)
+        run: |
+          cd desktop
+          python -m PyInstaller --noconfirm --clean --windowed --onedir --name pobieralnik --add-data "bin:bin" --add-data "assets:assets" --collect-data certifi main.py
+      - name: Create DMG
+        run: |
+          cd desktop/dist
+          hdiutil create -volname pobieralnik -srcfolder pobieralnik.app -ov -format UDZO pobieralnik-macos.dmg || \
+          (cd pobieralnik && zip -qr ../pobieralnik-macos.zip . && cd ..)
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/dist/pobieralnik-macos.dmg
+            desktop/dist/pobieralnik-macos.zip
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "stable"
+          cache: true
+      - name: Build APK
+        run: |
+          cd mobile
+          flutter create . --project-name tubecutter --org dev.tubecutter --platforms=android
+          flutter pub get
+          flutter build apk --release
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: mobile/build/app/outputs/flutter-apk/app-release.apk

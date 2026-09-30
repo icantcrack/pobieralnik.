@@ -1,0 +1,18 @@
+name: TubeCutter Mobile
+description: Pobieranie audio z YouTube jako MP3, biblioteka i przygotowanie plyty CD.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ffmpeg_kit_flutter_new_min: ^1.2.0
+  shared_preferences: ^2.2.0
+  sqflite: ^2.3.0
+  http: ^1.2.0
+
+flutter:
+  uses-material-design: true

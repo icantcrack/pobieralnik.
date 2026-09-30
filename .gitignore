@@ -1,0 +1,20 @@
+# --- build / artefakty ---
+desktop/build/
+desktop/dist/
+desktop/bin/
+__pycache__/
+*.pyc
+*.zip
+build_log.txt
+
+# --- selftest / logi ---
+selftest_log.txt
+selftest_player_log.txt
+selftest_out/
+
+# --- artefakty deweloperskie ---
+screenshots/
+
+# --- katalogi śmieciowe utworzone przypadkiem w workspace ---
+%PROGRAMDATA%/
+NVIDIA Corporation/
